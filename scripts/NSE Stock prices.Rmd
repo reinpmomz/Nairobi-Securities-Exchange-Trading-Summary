@@ -1,0 +1,238 @@
+---
+title: "NSE Stock prices"
+author: "Reinp"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    keep_md: yes
+  word_document: default
+  pdf_document: default
+---
+
+# R Programming
+
+## Set Chunk requirements
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+## loading Relevant packages and Data Set
+
+```{r Import relevant packages}
+#Import relevant packages
+
+## tidyverse includes readr, ggplot2, dplyr, forcats, tibble, tidyr, purrr, stringr
+library(tidyverse) 
+library(readxl)
+library(janitor)
+library(lubridate)
+library(scales)
+
+
+## loading the csv data set
+setwd('F:\\Documents\\Reinp\\GitHub Respositories\\NSE Stock Prices')
+
+NSE_Stock_prices_2019 <- read_excel("NSE Stock prices 2019.xlsx",
+                              sheet = "NSE Stock data 2019")
+
+
+NSE_Stock_prices_2020 <- read_excel("NSE Stock prices 2020.xlsx",
+                              sheet = "NSE Stock data 2020")
+
+
+NSE_Stock_prices_2021 <- read_excel("NSE Stock prices 2021.xlsx",
+                              sheet = "NSE Stock data 2021")
+
+
+NSE_unique <- read_excel("NSE Stock prices 2021.xlsx",
+                              sheet = "Unique")
+
+
+#combine the data frames by rows
+
+
+NSE_Stock_prices_raw <- rbind(NSE_Stock_prices_2019, NSE_Stock_prices_2020, NSE_Stock_prices_2021)
+
+
+```
+
+
+```{r}
+
+NSE_Stock_prices <- merge(NSE_unique %>%
+                                      select(-4, -7)
+                     , NSE_Stock_prices_raw %>%
+                        select(-4, -11, -12) ,
+                     by.x = "CODE", 
+                     by.y = "CODE") #InnerJoin
+
+NSE_Stock_prices <- NSE_Stock_prices%>%
+  janitor:: clean_names()%>%
+  mutate(date = ymd(date))%>%
+  arrange(date, sector, name)
+
+
+
+View(NSE_Stock_prices)
+
+```
+
+
+## Structure of the Data
+
+```{r Structure of the Data, results="hide"}
+
+head(NSE_Stock_prices)
+
+tail(NSE_Stock_prices)
+
+# How many variables and observations are there?
+ncol(NSE_Stock_prices)
+
+nrow(NSE_Stock_prices)
+
+#learn more about the dataset
+
+class(NSE_Stock_prices)
+typeof(NSE_Stock_prices) 
+length(NSE_Stock_prices)
+
+```
+
+## Cleaning Data 
+
+### Missing Values
+
+```{r}
+# check number of missing values in our data
+sapply(NSE_Stock_prices,function(x) sum(is.na(x)))
+
+```
+
+### Columns
+
+```{r}
+
+NSE_Stock_prices <- NSE_Stock_prices%>% 
+  mutate(volume_of_shares_traded = 
+      ifelse( volume_of_shares_traded == "-" | is.na(volume_of_shares_traded),"0",
+              volume_of_shares_traded))%>%
+  mutate(volume_of_shares_traded = as.numeric(volume_of_shares_traded))
+
+str(NSE_Stock_prices$volume_of_shares_traded)
+
+```
+
+### Adding Columns
+
+```{r}
+
+NSE_Stock_prices1 <- NSE_Stock_prices%>%
+  mutate(turn_over = days_trading_vwap_price * volume_of_shares_traded)%>%
+  mutate(change = days_trading_vwap_price - previous_days_vwap_price )%>%
+  mutate(percentage_change = round((change/previous_days_vwap_price)*100,3) )%>%
+  mutate(day_month = day(date))%>%
+                       mutate(month_name = month(date, label = TRUE))%>%
+                       mutate(year = factor(year(date), ordered = TRUE))%>%
+                       mutate(day_year = factor(yday(date), ordered = TRUE))%>% #day of year
+                       mutate(week_year = factor(week(date), ordered = TRUE))%>% #week of year
+                       mutate(week_year_date = ceiling_date(date, unit = "week"))%>% 
+                       mutate(month_year_date = floor_date(date, unit = "month"))
+
+View(NSE_Stock_prices1)
+
+names(NSE_Stock_prices1) #display variable names  
+str(NSE_Stock_prices1)
+```
+
+
+```{r}
+
+total_traded_daily <- NSE_Stock_prices1%>%
+ group_by(date, security_type_general)%>%
+  summarise( total_volume_traded = sum(volume_of_shares_traded),
+            total_turnover = sum(turn_over), .groups = 'drop')%>%
+             drop_na()
+
+total_traded_weekly <- NSE_Stock_prices1%>%
+ group_by(week_year_date, security_type_general)%>%
+  summarise( total_volume_traded = sum(volume_of_shares_traded),
+            total_turnover = sum(turn_over), .groups = 'drop')%>%
+             drop_na()
+
+total_traded_monthly <- NSE_Stock_prices1%>%
+ group_by(month_year_date, security_type_general)%>%
+  summarise( total_volume_traded = sum(volume_of_shares_traded),
+            total_turnover = sum(turn_over), .groups = 'drop')%>%
+             drop_na()
+
+total_traded_yearly <- NSE_Stock_prices1%>%
+ group_by(year, security_type_general)%>%
+  summarise( total_volume_traded = sum(volume_of_shares_traded),
+            total_turnover = sum(turn_over), .groups = 'drop')%>%
+             drop_na()
+
+```
+
+
+```{r}
+
+
+ggplot(data=total_traded_daily%>%
+         filter(security_type_general != "Index")%>%
+         arrange( security_type_general, date)) +
+  geom_line(aes(x=date, y=total_volume_traded, colour=security_type_general))+
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days")+ 
+  scale_y_continuous(labels = scales::comma, n.breaks = 10) +
+  theme(axis.text.x = element_text(angle = 90, size = 8, face = "bold"),
+        plot.title = element_text(hjust = 0.5),
+        legend.position="bottom")+
+  labs(title="Daily volume traded ", x="day_date", y ="Total volume")+
+  guides(col = guide_legend(ncol = 2))
+
+
+ggplot(data=total_traded_daily%>%
+         filter(security_type_general != "Index")%>%
+         arrange( security_type_general, date)) +
+  geom_line(aes(x=date, y=total_turnover, colour=security_type_general))+
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous(labels = scales::comma, n.breaks = 10) +
+  theme(axis.text.x = element_text(angle = 90, size = 8, face = "bold"),
+        plot.title = element_text(hjust = 0.5),
+        legend.position="bottom")+
+  labs(title="Daily turnover traded ", x="day_date", y ="Total turnover (KES)")+
+  guides(col = guide_legend(ncol = 2))
+
+
+ggplot(data=total_traded_weekly%>% 
+         filter(security_type_general != "Index")%>%
+         arrange( security_type_general, week_year_date)) +
+  geom_line(aes(x=week_year_date, y=total_volume_traded, colour=security_type_general))+
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "8 weeks") +
+  scale_y_continuous(labels = scales::comma, n.breaks = 12) +
+  theme(axis.text.x = element_text(angle = 90, size = 8, face = "bold"),
+        plot.title = element_text(hjust = 0.5),
+        legend.position="bottom")+
+  labs(title="Weekly volume traded ", x="week_date", y ="Total volume")+
+  guides(col = guide_legend(ncol = 2))
+
+
+ggplot(data=total_traded_weekly%>% 
+         filter(security_type_general != "Index")%>%
+         arrange( security_type_general, week_year_date)) +
+  geom_line(aes(x=week_year_date, y=total_turnover, colour=security_type_general))+
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "8 weeks") +
+  scale_y_continuous(labels = scales::comma, n.breaks = 12) +
+  theme(axis.text.x = element_text(angle = 90, size = 8, face = "bold"),
+        plot.title = element_text(hjust = 0.5),
+        legend.position="bottom")+
+  labs(title="Weekly turnover traded ", x="week_date", y ="Total turnover (KES)")+
+  guides(col = guide_legend(ncol = 2))
+
+```
+
+
+
+
