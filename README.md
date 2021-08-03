@@ -1,4 +1,4 @@
-# Nairobi-Stock-Exchange-Trading-Summary
+# Nairobi-Securities-Exchange-Trading-Summary
 A summary of NSE trading stock prices.
 
 Dashboard deriving interesting data insights and visualizing the market prices.
