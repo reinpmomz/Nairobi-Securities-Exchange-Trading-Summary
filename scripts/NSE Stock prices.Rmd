@@ -32,28 +32,24 @@ library(scales)
 
 
 ## loading the csv data set
-setwd('F:\\Documents\\Reinp\\GitHub Respositories\\NSE Stock Prices')
+setwd('F:\\Documents\\Reinp\\GitHub Respositories\\Nairobi-Securities-Exchange-Trading-Summary')
 
-NSE_Stock_prices_2019 <- read_excel("NSE Stock prices 2019.xlsx",
-                              sheet = "NSE Stock data 2019")
-
-
-NSE_Stock_prices_2020 <- read_excel("NSE Stock prices 2020.xlsx",
-                              sheet = "NSE Stock data 2020")
+NSE_Stock_prices_2016_2020 <- read_excel("data/NSE Stock prices 2017 - 2020.xlsx",
+                              sheet = "NSE Stock data 2017 - 2020")
 
 
-NSE_Stock_prices_2021 <- read_excel("NSE Stock prices 2021.xlsx",
+NSE_Stock_prices_2021 <- read_excel("data/NSE Stock prices 2021.xlsx",
                               sheet = "NSE Stock data 2021")
 
 
-NSE_unique <- read_excel("NSE Stock prices 2021.xlsx",
+NSE_unique <- read_excel("data/NSE Stock prices 2021.xlsx",
                               sheet = "Unique")
 
 
 #combine the data frames by rows
 
 
-NSE_Stock_prices_raw <- rbind(NSE_Stock_prices_2019, NSE_Stock_prices_2020, NSE_Stock_prices_2021)
+NSE_Stock_prices_raw <- rbind(NSE_Stock_prices_2016_2020, NSE_Stock_prices_2021)
 
 
 ```
