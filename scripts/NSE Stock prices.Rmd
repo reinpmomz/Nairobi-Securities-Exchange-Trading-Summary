@@ -29,6 +29,7 @@ library(readxl)
 library(janitor)
 library(lubridate)
 library(scales)
+library(plotly)
 
 
 ## loading the csv data set
@@ -38,18 +39,18 @@ NSE_Stock_prices_2016_2020 <- read_excel("data/NSE Stock prices 2017 - 2020.xlsx
                               sheet = "NSE Stock data 2017 - 2020")
 
 
-NSE_Stock_prices_2021 <- read_excel("data/NSE Stock prices 2021.xlsx",
-                              sheet = "NSE Stock data 2021")
+NSE_Stock_prices_2021_2025 <- read_excel("data/NSE Stock prices 2021 - 2025.xlsx",
+                              sheet = "NSE Stock data 2021 - 2025")
 
 
-NSE_unique <- read_excel("data/NSE Stock prices 2021.xlsx",
+NSE_unique <- read_excel("data/NSE Stock prices 2021 - 2025.xlsx",
                               sheet = "Unique")
 
 
 #combine the data frames by rows
 
 
-NSE_Stock_prices_raw <- rbind(NSE_Stock_prices_2016_2020, NSE_Stock_prices_2021)
+NSE_Stock_prices_raw <- rbind(NSE_Stock_prices_2016_2020, NSE_Stock_prices_2021_2025)
 
 
 ```
@@ -143,6 +144,7 @@ names(NSE_Stock_prices1) #display variable names
 str(NSE_Stock_prices1)
 ```
 
+## ggplot
 
 ```{r}
 
@@ -228,6 +230,317 @@ ggplot(data=total_traded_weekly%>%
   guides(col = guide_legend(ncol = 2))
 
 ```
+
+## Forecasting
+
+```{r}
+library(forecast)
+
+Eaagads <- NSE_Stock_prices1%>%
+  select(date, name, days_trading_vwap_price, volume_of_shares_traded, year)%>%
+                       mutate(month_num = month(date, label = FALSE))%>%
+  filter(name == "Eaagads Ltd")%>%
+  mutate(date_numeric = as.numeric(date))
+
+
+par(mfrow = c(1,2))
+acf(as.ts(Eaagads$days_trading_vwap_price), main = "")
+pacf(as.ts(Eaagads$days_trading_vwap_price), main = "")
+```
+
+
+```{r}
+
+arima1 <- auto.arima(as.ts(Eaagads$days_trading_vwap_price)
+                     )
+arima1
+
+arima2 <- auto.arima(as.ts(Eaagads$days_trading_vwap_price)
+                     ,xreg = cbind(Eaagads$year,
+                                   Eaagads$month_num
+                                   )
+                     )
+arima2
+
+arima3 <- auto.arima(as.ts(Eaagads$days_trading_vwap_price)
+                     ,xreg = cbind(Eaagads$year,
+                                   Eaagads$month_num,
+                                   Eaagads$volume_of_shares_traded
+                                   )
+                     )
+arima3
+
+```
+
+In order to qualitatively assess the goodness of the above arima models, let us compare the predicted values with the observed ones:
+
+```{r}
+df1 <- tibble(observed = Eaagads$days_trading_vwap_price, predicted = as.numeric(arima1$fitted), time = Eaagads$date) %>% 
+  mutate(abs_error = abs((observed - predicted)/observed*100))
+
+df2 <- tibble(observed = Eaagads$days_trading_vwap_price, predicted = as.numeric(arima2$fitted), time = Eaagads$date) %>% 
+  mutate(abs_error = abs((observed - predicted)/observed*100))
+
+df3 <- tibble(observed = Eaagads$days_trading_vwap_price, predicted = as.numeric(arima3$fitted), time = Eaagads$date) %>% 
+  mutate(abs_error = abs((observed - predicted)/observed*100))
+
+ggplot(gather(df1 %>% select(-abs_error), obs_pred, value, -time)%>% 
+         mutate(obs_pred = factor(obs_pred, levels = c("predicted", "observed"))), 
+       aes(x = time, y = value, col = obs_pred)) +
+  geom_line() +
+  xlab("") + ylab("") +
+   scale_color_manual(values=c("black", "hotpink")) +
+ scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous( n.breaks = 8) +
+  theme_bw() + theme(legend.title = element_blank(),
+                     axis.text.x  = element_text(angle=90, vjust=0.5, size = 8, face = "bold"))
+
+ggplot(gather(df2 %>% select(-abs_error), obs_pred, value, -time)%>% 
+         mutate(obs_pred = factor(obs_pred, levels = c("predicted", "observed"))), 
+       aes(x = time, y = value, col = obs_pred)) +
+  geom_line() +
+  xlab("") + ylab("") +
+   scale_color_manual(values=c("black", "hotpink")) +
+ scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous( n.breaks = 8) +
+  theme_bw() + theme(legend.title = element_blank(),
+                     axis.text.x  = element_text(angle=90, vjust=0.5, size = 8, face = "bold"))
+
+ggplot(gather(df3 %>% select(-abs_error), obs_pred, value, -time)%>% 
+         mutate(obs_pred = factor(obs_pred, levels = c("predicted", "observed"))), 
+       aes(x = time, y = value, col = obs_pred)) +
+  geom_line() +
+  xlab("") + ylab("") +
+   scale_color_manual(values=c("black", "hotpink")) +
+ scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous( n.breaks = 8) +
+  theme_bw() + theme(legend.title = element_blank(),
+                     axis.text.x  = element_text(angle=90, vjust=0.5, size = 8, face = "bold"))
+```
+
+
+
+```{r, message = FALSE, warning = FALSE}
+#So first we split the dataset, allowing for a varying index:
+
+train_index <- 916
+n_total <- nrow(Eaagads)
+Eaagads_train1 <- Eaagads[1:(train_index),]
+Eaagads_test <- Eaagads[(train_index+1):n_total,]
+predicted <- numeric(n_total-train_index)
+predicted1 <- numeric(n_total-train_index)
+predicted2 <- numeric(n_total-train_index)
+
+#Then we apply a for cycle that iterates model and estimates one day ahead:
+
+for (i in 1:(n_total-train_index)) {
+  Eaagads_train <- Eaagads[1:(train_index-1+i),]
+  arima_model <- auto.arima(as.ts(Eaagads$days_trading_vwap_price)
+                     ,xreg = cbind(Eaagads$year, Eaagads$month_num
+                                   )
+                     )
+  pred <- forecast(arima_model, 1,
+                   xreg = cbind(Eaagads$year[i], 
+                                                Eaagads$month_num[i]
+                                )
+                   )
+  predicted[i] <- pred[["mean"]]
+  predicted1[i] <- pred[["upper"]]
+  predicted2[i] <- pred[["lower"]]
+  #predicted[i] <- pred$upper
+  #predicted[i] <- pred$lower
+  #predicted[i] <- pred$fitted
+}
+
+df_pred <- tibble(obs = c(Eaagads_train1$days_trading_vwap_price, Eaagads_test$days_trading_vwap_price), 
+                  predicted = c(Eaagads_train1$days_trading_vwap_price, predicted), 
+                  predicted_lower = c(Eaagads_train1$days_trading_vwap_price, predicted2),
+                  predicted_upper= c(Eaagads_train1$days_trading_vwap_price, predicted1),
+                  time = Eaagads$date)
+
+
+```
+
+
+```{r}
+ggplot(gather(df_pred, obs_pred, value, -time) %>% 
+         mutate(obs_pred = factor(obs_pred, levels = c("predicted_upper", "predicted", "predicted_lower",
+                                                       "obs"))), 
+       aes(x = time, y = value, col = obs_pred,
+           #linetype = obs_pred
+           )) +
+  geom_line() +
+  xlab("") + ylab("") +
+  scale_color_manual(values=c("green", "black", "red", "hotpink")) +
+  #scale_linetype_manual(values=c(6, 2, 4, 1)) +
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous( n.breaks = 8) +
+  theme_bw() + theme(legend.title = element_blank(),
+                     axis.text.x  = element_text(angle=90, vjust=0.5, size = 8, face = "bold"))
+
+
+```
+
+When you are conducting an exploratory analysis of time-series data, you'll need to identify trends while ignoring random fluctuations in your data.
+
+## 1. Trend Lines - Global smoothers
+
+One of the simplest methods to identify trends is to fit a ordinary least squares regression model to the data. The model most people are familiar with is the linear model, but you can add other polynomial terms for extra flexibility. 
+
+**Avoid polynomials of degrees larger than three because they are less stable.**
+
+```{r}
+
+ti = 1:length(Eaagads$days_trading_vwap_price)
+m1 = lm(Eaagads$days_trading_vwap_price~ti)
+m2 = lm(Eaagads$days_trading_vwap_price~ti+I(ti^2))
+m3 = lm(Eaagads$days_trading_vwap_price~ti+I(ti^2)+I(ti^3))
+ 
+
+    plot_ly(x=Eaagads$date, y=Eaagads$days_trading_vwap_price, type="scatter", mode="lines",
+            line=list(color=rgb(0.8,0.8,0.8,0.8), width=4), name="VWAP- Eaagads")%>%
+  add_lines( x=Eaagads$date, y=predict(m1), line=list(dash="solid", width = 1.5, color=NULL),
+             name="Linear")%>%
+  add_lines( x=Eaagads$date, y=predict(m2), line=list(dash="solid", width = 1.5, color=NULL),
+             name="Quadratic")%>%
+  add_lines( x=Eaagads$date, y=predict(m3), line=list(dash="solid", width = 1.5, color=NULL),
+             name="Cubic")%>%
+  layout(title = "Global smoothers")
+
+
+
+```
+
+
+## 2. Trend Lines - Local Smoothers
+
+### Running line smoothers
+
+The running line smoother reduces the bias by fitting a linear regression in a local neighborhood of the target value. A popular algorithm using the running line smoother is **Friedman’s super smoother supsmu**, which by default uses cross-validation to find the best span.
+
+```{r}
+
+
+rlcv = supsmu(Eaagads$date, Eaagads$days_trading_vwap_price)
+rlst = supsmu(Eaagads$date, Eaagads$days_trading_vwap_price, span = 0.05)
+rllt = supsmu(Eaagads$date, Eaagads$days_trading_vwap_price, span = 0.75)
+ 
+     plot_ly(x=Eaagads$date, y=Eaagads$days_trading_vwap_price,
+             type="scatter", mode="lines", line = list(color=rgb(0.8,0.8,0.8,0.8), width=4),
+             name="VWAP- Eaagads")%>%
+    add_lines(x=Eaagads$date,y=rllt$y, line=list(dash="solid", width = 1.5, color=NULL),
+              name="Span = 0.75")%>%
+    add_lines(x=Eaagads$date,y=rlst$y, line=list(dash="solid", width = 1.5, color=NULL),
+              name="Span = 0.05")%>%
+    add_lines(x=Eaagads$date,y=rlcv$y, line=list(dash="solid", width = 1.5, color=NULL),
+              name="Cross-validated span")%>%
+    layout(title = "Running line smoothers",
+           legend = list(orientation = 'h',
+                       xanchor = "center",  # use center of legend as anchor
+                     x = 0.5# put legend in center of x-axis
+                     ))
+
+```
+
+### Kernel smoothers
+
+An alternative approach to specifying a neighborhood is to decrease weights further away from the target value. These estimates are much smoother than the results from either the running mean (moving average) or running line smoothers.
+
+```{r}
+
+ks1 = ksmooth(Eaagads$date, Eaagads$days_trading_vwap_price, "normal", 60, x.points=Eaagads$date)
+ks2 = ksmooth(Eaagads$date, Eaagads$days_trading_vwap_price, "normal", 30, x.points=Eaagads$date)
+ 
+      plot_ly(x=Eaagads$date, y=Eaagads$days_trading_vwap_price, type="scatter", mode="lines",
+              line=list(color=rgb(0.8,0.8,0.8,0.8), width=4),name="VWAP- Eaagads")%>%
+      add_lines(x=ks1$x, y=ks1$y, line=list(dash="solid", width = 1.5, color=NULL),
+                name="Bandwidth = 60")%>%
+      add_lines(x=ks1$x, y=ks2$y, line=list(dash="solid", width = 1.5, color=NULL),
+                name="Bandwidth = 30")%>%
+      layout( title = "Kernel smoother")
+
+```
+
+### Smoothing splines
+
+Splines consist of a piece-wise polynomial with pieces defined by a sequence of knots where the pieces join smoothly. A smoothing splines is estimated by minimizing a criterion containing a penalty for both goodness of fit, and smoothness. The trade-off between the two is controlled by the smoothing parameter **lambda**, which is typically chosen by cross-validation.
+
+In the base package, **smooth.spline** can be used to compute splines, but it is more common to use the **GAM function in mgcv**. Both functions use cross-validation to choose the default smoothing parameter; but the results vary between implementations. 
+
+Another advantage to using GAM is that it allows estimation of confidence intervals.
+
+```{r}
+
+library(mgcv)
+sp.base = smooth.spline(Eaagads$date, Eaagads$days_trading_vwap_price)
+
+sp.cr = gam(Eaagads$days_trading_vwap_price~s(Eaagads$date_numeric, bs="cr"))
+sp.gam = gam(Eaagads$days_trading_vwap_price~s(Eaagads$date_numeric))
+sp.pred = predict(sp.gam, type="response", se.fit=TRUE)
+sp.df = data.frame(x=sp.gam$model[,2], y=sp.pred$fit,
+                    lb=as.numeric(sp.pred$fit - (1.96 * sp.pred$se.fit)),
+                    ub=as.numeric(sp.pred$fit + (1.96 * sp.pred$se.fit)))
+sp.df = sp.df[order(sp.df$x),]
+
+
+    plot_ly(x=Eaagads$date, y=Eaagads$days_trading_vwap_price, type="scatter", mode="lines",
+            line=list(color=rgb(0.8,0.8,0.8,0.8), width=4),name="VWAP- Eaagads")%>%
+    add_lines(x=Eaagads$date, y=sp.df$y, name="GAM", line=list(color="#366092", width=2))%>%
+    add_ribbons(x=as.Date(sp.df$x, origin="1970-01-01"), ymin=sp.df$lb, ymax=sp.df$ub,
+                name="GAM 95% CI", line=list(color="#366092", opacity=0.4, width=0))%>%
+    add_lines(x=Eaagads$date, y=predict(sp.base)$y, name="smooth.spline",
+              line=list(color="orange", width=2))%>%
+    layout(title="Smoothing splines")
+    
+
+```
+
+### Loess
+
+LOESS (Locally Estimated Scatterplot Smoother) combines local regression with kernels by using locally weighted polynomial regression (by default, quadratic regression with tri-cubic weights).It also allows estimation of approximate confidence intervals. 
+
+However, it is important to note that unlike **supsmu, smooth.spline or gam**, loess does not use cross-validation. By default, the span is set to 0.75; that is, the estimated smooth at each target value consists of a local regression constructed using 75% of the data points closest to the target value. This span is fairly large and results in estimated values that are smoother than those from other methods.
+
+```{r}
+
+
+ll.rough = loess(Eaagads$days_trading_vwap_price~ Eaagads$date_numeric, span=0.1)
+ll.smooth = loess(Eaagads$days_trading_vwap_price~ Eaagads$date_numeric, span=0.75)
+ 
+    plot_ly(x=Eaagads$date, y=Eaagads$days_trading_vwap_price,
+               type="scatter", mode="lines", name="VWAP- Eaagads",
+               line=list(color=rgb(0.8,0.8,0.8,0.8), width=4))%>%
+       add_lines(x=Eaagads$date, y=predict(ll.smooth), name="Span = 0.75",
+                 line =list(dash="solid", width = 1.5, color=NULL))%>%
+       add_lines(x=Eaagads$date, y=fitted(ll.rough), name="Span = 0.10",
+                 line =list(dash="solid", width = 1.5, color=NULL))%>%
+      layout(title = "LOESS")
+
+
+```
+
+```{r}
+ll.pred = predict(ll.smooth, se = TRUE)
+
+
+ll.df = data.frame(x=as.Date(ll.smooth$x, origin="1970-01-01"), fit=ll.pred$fit,
+lb = ll.pred$fit - (1.96 * ll.pred$se),
+ub = ll.pred$fit + (1.96 * ll.pred$se))
+ll.df = ll.df[order(ll.df$x),]
+
+ 
+ 
+    plot_ly(x=Eaagads$date, y=Eaagads$days_trading_vwap_price,
+                 type="scatter", mode="lines", name="VWAP- Eaagads",
+            line = list(color=rgb(0.8,0.8,0.8,0.8), width=4))%>%
+    add_lines(x=as.Date(Eaagads$date_numeric, origin="1970-01-01"),
+              y=ll.df$fit, name="Mean", line=list(color="#366092", width=2))%>%
+    add_ribbons(x=as.Date(Eaagads$date_numeric, origin="1970-01-01"),
+                ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI", line=list(opacity=0.4, width=0, color="#366092"))%>%
+  layout(title = "LOESS with confidence intervals")
+
+```
+
 
 
 
