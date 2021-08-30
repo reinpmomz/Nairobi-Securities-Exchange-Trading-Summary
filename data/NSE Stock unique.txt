@@ -67,10 +67,10 @@ UNGA	Unga Group Ltd Ord 5.00	Shares	Unga Group Ltd	Manufacturing and Allied	KE00
 SCOM	Safaricom Ltd Ord 0.05	Shares	Safaricom Plc	Telecommunication and Technology	KE1000001402	https://live.mystocks.co.ke/stock=SCOM
 FAHR	Stanlib Fahari I-REIT. Ord.20.00	REIT- Real Estate Investment Trust	Stanlib Fahari Income-REIT	Real Estate Investment Trusts	KE5000003656	https://live.mystocks.co.ke/stock=FAHR
 GLD	ABSA New Gold ETF	ETF- Exchange Traded Fund	ABSA NewGold ETF	Exchange Traded Funds	KE5000007095	https://live.mystocks.co.ke/stock=GLD
-^FNK15	FTSE NSE Kenya 15 Index (FNK15)	Index	FTSE NSE Kenya 15 Index	FTSE NSE Kenya		https://live.mystocks.co.ke/stock=%255EFNK15
-^FNK25	FTSE NSE Kenya 25 Index (FNK25)	Index	FTSE NSE Kenya 25 Index	FTSE NSE Kenya		https://live.mystocks.co.ke/stock=%255EFNK25
-^N20I	NSE 20-Share Index (N20I) - 1996 = 100	Index	NSE 20-Share Index	NSE Share Index		https://live.mystocks.co.ke/stock=%255EN20I
-^N25I	NSE 25-Share Index (N25I) - 1st Sep 2015 = 4101.67	Index	NSE 25-Share Index	NSE Share Index		https://live.mystocks.co.ke/stock=%255EN25I
-^NASI	NSE All-Share Index (NASI) - 1st Jan 2008 =100	Index	NSE All-Share Index	NSE Share Index		https://live.mystocks.co.ke/stock=%255ENASI
-^ZKEQTK	Zamara Kenya Equity Index (KES) - ZKEQTK	Index	Zamara Kenya Equity Index (KES)	Zamara Kenya Equity Index		https://live.mystocks.co.ke/stock=%255EZKEQTK
-^ZKEQTU	Zamara Kenya Equity Index (USD) - ZKEQTU	Index	Zamara Kenya Equity Index (USD)	Zamara Kenya Equity Index		https://live.mystocks.co.ke/stock=%255EZKEQTU
+^FNK15	FTSE NSE Kenya 15 Index (FNK15)	Indices	FTSE NSE Kenya 15 Index	FTSE NSE Kenya		https://live.mystocks.co.ke/stock=%255EFNK15
+^FNK25	FTSE NSE Kenya 25 Index (FNK25)	Indices	FTSE NSE Kenya 25 Index	FTSE NSE Kenya		https://live.mystocks.co.ke/stock=%255EFNK25
+^N20I	NSE 20-Share Index (N20I) - 1996 = 100	Indices	NSE 20-Share Index	NSE Share Index		https://live.mystocks.co.ke/stock=%255EN20I
+^N25I	NSE 25-Share Index (N25I) - 1st Sep 2015 = 4101.67	Indices	NSE 25-Share Index	NSE Share Index		https://live.mystocks.co.ke/stock=%255EN25I
+^NASI	NSE All-Share Index (NASI) - 1st Jan 2008 =100	Indices	NSE All-Share Index	NSE Share Index		https://live.mystocks.co.ke/stock=%255ENASI
+^ZKEQTK	Zamara Kenya Equity Index (KES) - ZKEQTK	Indices	Zamara Kenya Equity Index (KES)	Zamara Kenya Equity Index		https://live.mystocks.co.ke/stock=%255EZKEQTK
+^ZKEQTU	Zamara Kenya Equity Index (USD) - ZKEQTU	Indices	Zamara Kenya Equity Index (USD)	Zamara Kenya Equity Index		https://live.mystocks.co.ke/stock=%255EZKEQTU
