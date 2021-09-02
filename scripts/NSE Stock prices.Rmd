@@ -37,8 +37,8 @@ library(mgcv)
 ## loading the csv data set
 setwd('F:\\Documents\\Reinp\\GitHub Respositories\\Nairobi-Securities-Exchange-Trading-Summary')
 
-NSE_Stock_prices_2016_2020 <- read_excel("data/NSE Stock prices 2017 - 2020.xlsx",
-                              sheet = "NSE Stock data 2017 - 2020")
+NSE_Stock_prices_2016_2020 <- read_excel("data/NSE Stock prices 2016 - 2020.xlsx",
+                              sheet = "NSE Stock data 2016 - 2020")
 
 
 NSE_Stock_prices_2021_2025 <- read_excel("data/NSE Stock prices 2021 - 2025.xlsx",
@@ -266,6 +266,7 @@ ti = 1:length(Safaricom$days_trading_vwap_price)
 m1 = lm(Safaricom$days_trading_vwap_price~ti)
 m2 = lm(Safaricom$days_trading_vwap_price~ti+I(ti^2))
 m3 = lm(Safaricom$days_trading_vwap_price~ti+I(ti^2)+I(ti^3))
+
  
 
     plot_ly(x=Safaricom$date, y=Safaricom$days_trading_vwap_price, type="scatter", mode="lines",
@@ -727,9 +728,114 @@ ggplot(gather(df_pred_2, obs_pred, value, -time) %>%
 ```
 
 
+## Predict 1 year Ahead
+
+### ARIMA
 
 
+```{r}
+
+#So first we split the dataset, allowing for a varying index:
+
+train_index1 <- nrow(Safaricom)
 
 
+dts <- seq(max(Safaricom$date)+1, max(Safaricom$date)+years(1), by = 1)
+
+dts1 <- dts[lubridate::wday(dts) %in% 2:6] #Remove Saturday(7) and Sunday(1) from dates
+
+n_total1 <- length(dts)
+n_total2 <- length(dts1)
+
+Safaricom_train3 <- Safaricom[1:(train_index1),]
+
+predicted3 <- numeric(n_total1)
+
+
+#Then we apply a for cycle that iterates model and estimates one day ahead:
+
+for (i in 1:(n_total1)) {
+  Safaricom_train_3 <- Safaricom[1:(train_index1-1+i),]
+  arima_model_3 <- auto.arima(as.ts(Safaricom_train_3$days_trading_vwap_price)
+                     )
+  pred_3 <- forecast(arima_model_3, 1
+                   )
+  
+  predicted3[i] <- pred_3[["mean"]]
+
+}
+
+```
+
+```{r}
+df_pred_3 <- tibble(predicted = c(Safaricom_train3$days_trading_vwap_price, round(predicted3,2)), 
+                  time = c(Safaricom$date, dts),
+                  obs_pred = c( rep("obs",train_index1), rep("pred",n_total1))
+                  )
+
+ggplotly(ggplot(df_pred_3, 
+       aes(x = time, y = predicted, col = obs_pred
+           #,linetype = obs_pred
+           )) +
+  geom_line() +
+  xlab("") + ylab("") + labs(title = "ARIMA Predict next 1 year")+
+  scale_color_manual(values=c( "black", "hotpink")) +
+  #scale_linetype_manual(values=c(2, 1)) +
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous( n.breaks = 8) +
+  theme_bw() + theme(legend.title = element_blank(),
+                     axis.text.x  = element_text(angle=90, vjust=0.5, size = 8, face = "bold")))
+
+```
+
+### ARIMAX
+
+
+```{r}
+Safaricom_train4 <- Safaricom[1:(train_index1),]
+
+predicted4 <- numeric(n_total2)
+
+
+#Then we apply a for cycle that iterates model and estimates one day ahead:
+
+for (i in 1:(n_total2)) {
+  Safaricom_train_4 <- Safaricom[1:(train_index1-1+i),]
+  arima_model_4 <- auto.arima(as.ts(Safaricom_train_4$days_trading_vwap_price),
+                              xreg = cbind(Safaricom_train_4$year,
+                                   Safaricom_train_4$month_num
+                                   )
+                     )
+  pred_4 <- forecast(arima_model_4, 1,
+                              xreg = cbind(Safaricom_train_4$year[i],
+                                   Safaricom_train_4$month_num[i]
+                                   )
+                   )
+  
+  predicted4[i] <- pred_4[["mean"]]
+
+}
+```
+
+```{r}
+df_pred_4 <- tibble(predicted = c(Safaricom_train4$days_trading_vwap_price, round(predicted4,2)), 
+                  time = c(Safaricom$date, dts1),
+                  obs_pred = c( rep("obs",train_index1), rep("pred",n_total2))
+                  )
+
+ggplotly(ggplot(df_pred_4, 
+       aes(x = time, y = predicted, col = obs_pred
+           #,linetype = obs_pred
+           )) +
+  geom_line() +
+  xlab("") + ylab("") + labs(title = "ARIMAX Predict next 1 year")+
+  scale_color_manual(values=c( "black", "hotpink")) +
+  #scale_linetype_manual(values=c(2, 1)) +
+  scale_x_date(date_labels = "%d-%b-%y", date_breaks = "60 days") +
+  scale_y_continuous( n.breaks = 8) +
+  theme_bw() + theme(legend.title = element_blank(),
+                     axis.text.x  = element_text(angle=90, vjust=0.5, size = 8, face = "bold")))
+
+```
 
 
